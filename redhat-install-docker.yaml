@@ -1,0 +1,50 @@
+---
+- name: playbook1
+  hosts: redhat          #修改自己的被控機(inventory定義的)
+  become: true
+  vars:
+    user_name: hank      #被控機的使用者
+  tasks:
+    - name: Add docker repository
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: '0644'
+
+    - name: Upgrade all packages  #自己決定是否更新
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+
+    - name: install docker
+      ansible.builtin.dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Make sure docker unit is running
+      ansible.builtin.systemd:
+        state: started
+        name: docker
+        enabled: true
+
+    - name: Ensure group "docker" exists with correct gid
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Add the user to docker group
+      ansible.builtin.user:
+        name: "{{user_name}}"
+        groups: docker
+        append: yes
+
+    - name: Reboot system to apply group changes
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+
+    - name: Verify user can run docker
+      ansible.builtin.shell:
+        cmd: 'docker ps'
