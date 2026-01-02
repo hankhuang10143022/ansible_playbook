@@ -1,0 +1,37 @@
+---
+- name: delpoy docker with docker compose
+  hosts: staging
+  tasks:
+    - name: Create a project if it does not exist
+      ansible.builtin.file:
+        path: /opt/vue/
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy .env to project dir   #將.env環境變數帶過來方便替換image
+      ansible.builtin.copy:
+        src: ../.env
+        dest: /opt/vue/.env
+        owner: ubuntu
+        group: ubuntu
+        mode: '0744'
+
+    - name: Copy docker-compose.yaml to project dir
+      ansible.builtin.copy:
+        src: ../docker-compose.yaml
+        dest: /opt/vue/docker-compose.yaml
+        owner: ubuntu
+        group: ubuntu
+        mode: '0744'
+
+    - name: Create and start services   #做docker-compose up 的模組作業
+      become: false                     #因為全域環境ansible.cfg有設定become: true，這邊不適合使用
+      community.docker.docker_compose_v2:
+        project_src: /opt/vue/          #docker-compose.yaml 所在目錄
+      register: output
+
+    - name: print status
+      ansible.builtin.debug:
+        var:  output
