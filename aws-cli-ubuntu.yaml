@@ -1,0 +1,54 @@
+---
+- name: playbook-1
+  hosts: staging   #需要被部屬的機器
+  tasks:
+    - name: check AWS CLI
+      ansible.builtin.command: aws --version
+      register: awscli_check
+      failed_when: false    #如果失敗(沒有AWS CLI) 不算錯誤
+      changed_when: false   #無論task都不要算成changed
+
+    - name: having aws cli outcome  #單純顯示有AWS CLI結果用
+      ansible.builtin.debug:
+        msg: "{{ awscli_check.stdout }}"
+      when: awscli_check.rc == 0   #已經有aws cli return code有回傳
+
+
+    - name: not having aws cli outcome  #單純顯示沒有AWS CLI結果用
+      ansible.builtin.debug:
+        msg: "this machine not have aws cli"
+      when: awscli_check.rc != 0  #沒有aws cli return code沒有回傳
+
+
+  #如果沒有aws cli 才會執行下列task
+
+    - name: Download aws cli.zip
+      ansible.builtin.uri:
+        url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /home/ubuntu/awscliv2.zip
+        creates: /home/ubuntu/awscliv2.zip  #只要檔案有就跳過
+      when: awscli_check.rc != 0
+
+    - name: check unzip package
+      ansible.builtin.apt:
+        name: unzip
+        state: present
+      when: awscli_check.rc != 0
+
+
+    - name: Extract awscliv2.zip
+      ansible.builtin.unarchive:
+        src: /home/ubuntu/awscliv2.zip
+        dest: /home/ubuntu
+        remote_src: true
+        creates: /home/ubuntu/aws  #只要檔案有就跳過
+      when: awscli_check.rc != 0
+
+
+    - name: Install AWS CLI
+      ansible.builtin.command: /home/ubuntu/aws/install
+      when: awscli_check.rc != 0
+
+    - name: Check AWS CLI again
+      ansible.builtin.command: aws --version
+      when: awscli_check.rc != 0
